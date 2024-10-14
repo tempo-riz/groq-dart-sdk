@@ -106,7 +106,7 @@ class GroqApi {
         http.MultipartRequest('POST', Uri.parse(_getAudioTranscriptionUrl));
 
     request.headers['Authorization'] = 'Bearer $apiKey';
-    request.headers['Content-Type'] = 'multipart/form-data';
+    // request.headers['Content-Type'] = 'multipart/form-data';
     request.files.add(await http.MultipartFile.fromPath('file', filePath));
     request.fields['model'] = modelId;
 
@@ -115,21 +115,29 @@ class GroqApi {
       request.fields[key] = value;
     });
 
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
+    try {
+      final response = await request.send().timeout(Duration(seconds: 60));
+      final responseBody = await response.stream.bytesToString();
+      print(responseBody);
+      print(response);
 
-    final jsonBody = json.decode(responseBody);
-    if (response.statusCode == 200) {
-      final audioResponse = GroqParser.audioResponseFromJson(jsonBody);
-      print(jsonBody);
-      // final usage =
-      //     GroqParser.groqUsageFromAudioJson(jsonBody['x_groq']['usage']);
-      final rateLimitInfo =
-          GroqParser.rateLimitInformationFromHeaders(response.headers);
-      return (audioResponse, rateLimitInfo);
-    } else {
-      throw GroqException(
-          statusCode: response.statusCode, error: GroqError.fromJson(jsonBody));
+      final jsonBody = json.decode(responseBody);
+      if (response.statusCode == 200) {
+        final audioResponse = GroqParser.audioResponseFromJson(jsonBody);
+        print(jsonBody);
+        // final usage =
+        //     GroqParser.groqUsageFromAudioJson(jsonBody['x_groq']['usage']);
+        final rateLimitInfo =
+            GroqParser.rateLimitInformationFromHeaders(response.headers);
+        return (audioResponse, rateLimitInfo);
+      } else {
+        throw GroqException(
+            statusCode: response.statusCode,
+            error: GroqError.fromJson(jsonBody));
+      }
+    } catch (e) {
+      print("Error with groq request: $e");
+      rethrow;
     }
   }
 
